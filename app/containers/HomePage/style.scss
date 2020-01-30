@@ -1,0 +1,43 @@
+.home{
+    .wrapper{
+        margin:0 auto;
+        margin-top:20px;
+        width:256px;
+        font-size: 14px;
+        .input{
+            height:24px;
+            border-radius:4px;
+            outline: none;
+            border:1px solid #999;
+            margin-top:-4px;
+            padding-left: 5px;
+            box-sizing: border-box;
+        }
+        .save{
+            width:60px;
+            height:30px;
+        }
+        .download{
+            width:300px;
+            height:26px;
+            background-color: #005aa0;
+            color:#fff;
+            text-align: center;
+            line-height: 26px;
+            border-radius: 4px;
+        }
+        .gray{
+            background-color: #eee;
+        }
+        .dir{
+            margin-left: 10px;
+            width: 180px;
+            overflow: hidden;
+            white-space: nowrap;
+            margin-top: 4px;
+        }
+    }
+    .save-path{
+        overflow: hidden;
+    }
+}
