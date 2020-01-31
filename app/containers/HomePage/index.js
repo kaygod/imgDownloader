@@ -7,6 +7,8 @@ const dialog = remote.dialog;
 const progress = require('request-progress');
 const fs = require("fs");
 const path = require("path");
+const URL = require('url');
+
 
 export default class Homepage extends Component {
 
@@ -61,26 +63,47 @@ export default class Homepage extends Component {
           return false;
         }
 
-        let reg = /<a.+?href=(['"])(.+?\.(png|jpg|jpeg|PNG|JPG))\1[^>]*>/ig;
+        let reg = /<a.+?href=(['"])([^'"]+?\.(png|jpg|jpeg|PNG|JPG))\1[^>]*>/ig;
 
         let obj,arr = [];
         
         while((obj = reg.exec(body)) !== null){
-          arr.push(obj[2]);
+          if(!arr.includes(obj[2])){
+            arr.push(obj[2]);
+          } 
         }
 
-        /* 这正则写的不对
-        reg = /<img.+?src=(['"])(.+?\.(png|jpg|jpeg|PNG|JPG))\1[^>]*>/ig;
-
+        //这正则写的不对
+        reg = /<img.+?src=(['"])([^'"]+?\.(png|jpg|jpeg|PNG|JPG))\1[^>]*>/ig;
         while((obj = reg.exec(body)) !== null){
-          arr.push(obj[2]);
-        }*/
+          if(!arr.includes(obj[2])){
+            arr.push(obj[2]);
+          } 
+        }
 
         resolve(arr);
-
+        
       })
 
     })
+
+  }
+
+  /**
+   * 获取文件下载路径
+   */
+  getFileUrl = (v,url)=>{
+
+    let fileUrl;
+
+    if(v.includes("http://") || v.includes("https://")){
+      fileUrl = v;
+    }else if(url.endsWith("/")){
+      fileUrl = `${url}${v}`;
+    }else{
+      fileUrl = `${url}/${v}`;
+    }
+    return fileUrl;
 
   }
 
@@ -93,45 +116,48 @@ export default class Homepage extends Component {
 
       this.setState({
         current_num:0,
-        total:arr.length,
-        status:2
+        total:arr.length
       })
       
       arr.forEach((v)=>{
 
         const fileName = path.basename(v);
 
-        let fileUrl;
-
         if(v.startsWith("/")){
            v = v.substring(1, v.length);  
         }
 
-        if(v.includes("http://") || v.includes("https://")){
-          fileUrl = v;
-        }else if(url.endsWith("/")){
-          fileUrl = `${url}${v}`;
-        }else{
-          fileUrl = `${url}/${v}`;
-        }
+        let fileUrl = this.getFileUrl(v,url);
+      
+        request(fileUrl,(error, response)=>{
 
-        progress(request(fileUrl),{})
-        .on('error',(err)=>{
-            console.log(err);
-            this.completeHandler(arr);
+           if((response && response.statusCode == 404) || error){
+              const {protocol,host} = URL.parse(url);
+              fileUrl = this.getFileUrl(v,`${protocol}//${host}`);
+           }
+
+           this.progressHandler(fileUrl,dirPath,fileName,arr);
+           
         })
-        .on('end',()=>{
-           this.completeHandler(arr);
-        })
-        .pipe(fs.createWriteStream(`${dirPath}/${fileName}`));
 
       })
-
-     
-
-
-
 }
+  /**
+   * 插件开始了
+   */
+  progressHandler = (fileUrl,dirPath,fileName,arr)=>{
+
+    progress(request(fileUrl),{})
+    .on('error',(err)=>{
+        console.log(err);
+        this.completeHandler(arr);
+    })
+    .on('end',()=>{
+       this.completeHandler(arr);
+    })
+    .pipe(fs.createWriteStream(`${dirPath}/${fileName}`));
+    
+  }
 
 /**
  * 下载完毕处理
@@ -189,10 +215,21 @@ export default class Homepage extends Component {
       new_url = `http://${new_url}`;
     }
 
+    /**
+     * 下面的getFiles执行可能需要花费很长事件,所以这里改成下载中状态
+     */
+    this.setState({
+      status:2
+    })
+
     const urls = await this.getFiles(new_url);
 
     if(urls.length == 0){
-      this.warn("没有发现图片!");
+      this.setState({
+        status:1
+      },()=>{
+        this.warn("没有发现图片!");
+      })
       return false;
     }
 
